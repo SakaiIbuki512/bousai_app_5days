@@ -246,7 +246,12 @@ def get_weather_warnings():
 # トップページ：templates/index.html を返す（住民向け指示も表示する）
 @app.route('/')
 def index():
-    resident_notices = [i for i in instructions if i.get('target') == '住民']
+    resident_notices = []
+    for item in instructions:
+        target = str(item.get('target', '')).strip()
+        publish = bool(item.get('publish_to_residents'))
+        if target in ('住民', '住民向け') or publish:
+            resident_notices.append(item)
     return render_template('index.html', resident_notices=resident_notices)
 
 # ログインページ
@@ -332,11 +337,108 @@ def all_shelters():
 
 
 # 指示ボード：住民向けの指示を一覧で確認する
-@app.route('/board')
+EMERGENCY_ORDER = {
+    '高': 3,
+    '中': 2,
+    '低': 1,
+}
+
+@app.route('/board', methods=['GET', 'POST'])
 @login_required
 def board():
-    resident_instructions = [i for i in instructions if i.get('target') == '住民']
-    return render_template('board.html', instructions=resident_instructions)
+    if request.method == 'POST':
+        if request.form.get('sort_priority') == 'on':
+            sorted_instructions = sorted(
+                instructions,
+                key=lambda item: EMERGENCY_ORDER.get(str(item.get('emergency_level', '中')), 0),
+                reverse=True
+            )
+            return render_template('board.html', instructions=sorted_instructions, shelters=shelters, sort_applied=True)
+
+        content = request.form.get('content', '').strip()
+        notice_type = request.form.get('notice_type', '避難指示').strip() or '避難指示'
+        target = request.form.get('target', '住民向け').strip() or '住民向け'
+        shelter = request.form.get('shelter', '').strip()
+        region = request.form.get('region', '全域').strip() or '全域'
+        emergency_level = request.form.get('emergency_level', '中').strip() or '中'
+        response_status = request.form.get('response_status', '未対応').strip() or '未対応'
+        publish_to_residents = request.form.get('publish_to_residents') == 'on' or target in ('住民', '住民向け')
+
+        shelter_names = {str(item.get('name', '')).strip() for item in shelters}
+        if notice_type not in ('避難指示', '避難所開設'):
+            return render_template(
+                'board.html',
+                instructions=instructions,
+                shelters=shelters,
+                error=True,
+                message='発信種別を選択してください。'
+            )
+
+        if shelter and shelter not in shelter_names:
+            return render_template(
+                'board.html',
+                instructions=instructions,
+                shelters=shelters,
+                error=True,
+                message='登録済みの避難所を選択してください。'
+            )
+
+        if notice_type == '避難所開設' and not shelter:
+            return render_template(
+                'board.html',
+                instructions=instructions,
+                shelters=shelters,
+                error=True,
+                message='避難所開設の発信では、開設する避難所を選択してください。'
+            )
+
+        if shelter:
+            destination_message = (
+                f'{region}の{shelter}を開設しました。'
+                if notice_type == '避難所開設'
+                else f'{region}は{shelter}へ避難してください。'
+            )
+        else:
+            destination_message = f'{region}の人は安全な場所へ避難してください。'
+
+        next_id = max((int(i.get('id', 0)) for i in instructions), default=0) + 1
+        now = get_japan_time()
+        new_instruction = {
+            'id': next_id,
+            'target': target,
+            'content': content,
+            'destination_message': destination_message,
+            'shelter': shelter,
+            'region': region,
+            'status': response_status,
+            'emergency_level': emergency_level,
+            'publish_to_residents': publish_to_residents,
+            'notice_type': notice_type,
+            'created_at': now,
+            'updated_at': now,
+        }
+        instructions.insert(0, new_instruction)
+        save_instructions()
+
+        ordered_instructions = sorted(
+            instructions,
+            key=lambda item: EMERGENCY_ORDER.get(str(item.get('emergency_level', '中')), 0),
+            reverse=True
+        )
+        return render_template(
+            'board.html',
+            instructions=ordered_instructions,
+            shelters=shelters,
+            success=True,
+            message='発信を登録しました。'
+        )
+
+    ordered_instructions = sorted(
+        instructions,
+        key=lambda item: EMERGENCY_ORDER.get(str(item.get('emergency_level', '中')), 0),
+        reverse=True
+    )
+    return render_template('board.html', instructions=ordered_instructions, shelters=shelters)
 
 # 検索結果ページ：templates/search_results.html を返す
 @app.route('/search_results')

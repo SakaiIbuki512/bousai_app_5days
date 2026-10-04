@@ -6,20 +6,286 @@
 <h2>発信ボード</h2>
 <p>住民向けの発信を登録・確認できます。</p>
 
-<!-- 発信一覧 -->
-<h3>発信一覧</h3>
+{% if success %}
+  <p>{{ message }}</p>
+{% endif %}
+
+{% if error %}
+  <p>{{ message }}</p>
+{% endif %}
+
+<form method="POST" class="board-form">
+  <div class="field-grid">
+    <div class="field">
+      <label for="notice_type">発信種別</label>
+      <select id="notice_type" name="notice_type">
+        <option value="避難指示" selected>避難指示</option>
+        <option value="避難所開設">避難所開設</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="target">情報の向き先</label>
+      <select id="target" name="target">
+        <option value="住民向け" selected>住民向け</option>
+        <option value="庁内向け">庁内向け</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="emergency_level">緊急度</label>
+      <select id="emergency_level" name="emergency_level">
+        <option value="低">低</option>
+        <option value="中" selected>中</option>
+        <option value="高">高</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="field-grid">
+    <div class="field">
+      <label for="region">対象地区</label>
+      <select id="region" name="region">
+        <option value="全域">全域</option>
+        <option value="A地区">A地区</option>
+        <option value="B地区">B地区</option>
+        <option value="C地区">C地区</option>
+        <option value="北地区">北地区</option>
+        <option value="南地区">南地区</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="shelter">避難先</label>
+      <select id="shelter" name="shelter">
+        <option value="">選択しない</option>
+        {% for shelter in shelters %}
+        <option value="{{ shelter.name }}">{{ shelter.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="response_status">対応状況</label>
+      <select id="response_status" name="response_status">
+        <option value="未対応">未対応</option>
+        <option value="対応中">対応中</option>
+        <option value="対応済み">対応済み</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="field generated-message-field">
+    <label for="destinationPreview">発信文（地区・避難先から自動作成）</label>
+    <output id="destinationPreview" aria-live="polite"></output>
+  </div>
+
+  <div class="field">
+    <label for="content">補足情報（任意）</label>
+    <textarea id="content" name="content" rows="4"></textarea>
+  </div>
+
+  <div class="field checkbox-field">
+    <label for="publish_to_residents">住民へ発信する</label>
+    <input type="checkbox" id="publish_to_residents" name="publish_to_residents" checked>
+  </div>
+
+  <button type="submit" class="submit-btn">発信する</button>
+  <p class="timestamp-note">登録日時は発信時に自動で記録されます。</p>
+</form>
+
+<hr>
+
+<h3>発信履歴</h3>
+<form method="POST" style="margin-bottom: 16px;">
+  <input type="hidden" name="sort_priority" value="on">
+  <button type="submit" class="submit-btn">緊急度順に並び替え</button>
+</form>
+
 {% if instructions %}
-<table border="1" cellpadding="5">
+<table class="board-table" border="1" cellpadding="6">
   <tr>
-    <th>内容</th>
+    <th>種別</th>
+    <th>対象</th>
+    <th>発信内容</th>
+    <th>避難先</th>
+    <th>地域</th>
+    <th>登録日時</th>
+    <th>緊急度</th>
+    <th>対応状況</th>
+    <th>住民発信</th>
   </tr>
   {% for inst in instructions %}
   <tr>
-    <td>{{ inst.content }}{% if inst.shelter %}（避難先: {{ inst.shelter }}）{% endif %}</td>
+    <td>{{ inst.notice_type or inst.get('type') or '避難指示' }}</td>
+    <td>{{ inst.target }}</td>
+    <td>
+      <strong>{{ inst.destination_message or inst.content }}</strong>
+      {% if inst.destination_message and inst.content %}<br><span class="supplemental-content">補足: {{ inst.content }}</span>{% endif %}
+    </td>
+    <td>{{ inst.shelter or '－' }}</td>
+    <td>{{ inst.region or '全域' }}</td>
+    <td>{{ inst.created_at or '－' }}</td>
+    <td>
+      <span class="priority-badge priority-{{ (inst.emergency_level or '中') | replace('低','low') | replace('中','mid') | replace('高','high') }}">
+        {{ inst.emergency_level or '中' }}
+      </span>
+    </td>
+    <td>{{ inst.status or '未対応' }}</td>
+    <td>{{ 'はい' if inst.publish_to_residents else 'いいえ' }}</td>
   </tr>
   {% endfor %}
 </table>
 {% else %}
 <p>登録されている指示はありません。</p>
 {% endif %}
+
+<style>
+  .board-form {
+    max-width: 760px;
+    background: #f7f8fa;
+    border: 1px solid #dfe5ea;
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  .field-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .field label {
+    font-weight: 700;
+  }
+
+  .generated-message-field output {
+    display: block;
+    min-height: 46px;
+    padding: 12px;
+    border-left: 4px solid #0e5c8d;
+    background: #eaf4fa;
+    color: #163b52;
+    font-weight: 700;
+  }
+
+  .timestamp-note,
+  .supplemental-content {
+    color: #526678;
+    font-size: 0.9rem;
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cdd7df;
+    border-radius: 8px;
+    font-size: 1rem;
+  }
+
+  .checkbox-field {
+    justify-content: flex-end;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+  }
+
+  .checkbox-field input {
+    width: 18px;
+    height: 18px;
+  }
+
+  .submit-btn {
+    background: #0e5c8d;
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .board-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+  }
+
+  .priority-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+  }
+
+  .priority-low {
+    background: #eaf8ee;
+    color: #1c8c57;
+  }
+
+  .priority-mid {
+    background: #fff4d6;
+    color: #9e6d00;
+  }
+
+  .priority-high {
+    background: #ffe1e1;
+    color: #b42318;
+  }
+
+  .board-table th,
+  .board-table td {
+    padding: 8px;
+    border: 1px solid #dfe5ea;
+    text-align: left;
+    vertical-align: top;
+  }
+
+  @media (max-width: 760px) {
+    .board-table {
+      display: block;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+  }
+</style>
+<script>
+  const regionField = document.getElementById('region');
+  const shelterField = document.getElementById('shelter');
+  const noticeTypeField = document.getElementById('notice_type');
+  const destinationPreview = document.getElementById('destinationPreview');
+
+  function updateDestinationPreview() {
+    const region = regionField.value || '全域';
+    const shelter = shelterField.value;
+    const isShelterOpening = noticeTypeField.value === '避難所開設';
+    shelterField.required = isShelterOpening;
+
+    if (isShelterOpening) {
+      destinationPreview.textContent = shelter
+        ? `${region}の${shelter}を開設しました。`
+        : `${region}の避難所を開設します。避難所を選択してください。`;
+    } else {
+      destinationPreview.textContent = shelter
+        ? `${region}は${shelter}へ避難してください。`
+        : `${region}の人は安全な場所へ避難してください。`;
+    }
+  }
+
+  regionField.addEventListener('change', updateDestinationPreview);
+  shelterField.addEventListener('change', updateDestinationPreview);
+  noticeTypeField.addEventListener('change', updateDestinationPreview);
+  updateDestinationPreview();
+</script>
 {% endblock %}

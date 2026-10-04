@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 
 {% block content %}
+<div class="accessibility-tools" aria-label="表示設定">
+  <button type="button" id="easyJapaneseToggle" aria-pressed="false">やさしい日本語にする</button>
+  <button type="button" id="largeTextToggle" aria-pressed="false">文字を大きくする</button>
+</div>
+
 <div class="section-title">
   <span class="pin"></span>
   <span>避難所マップ</span>
@@ -9,6 +14,31 @@
 <div class="map-card">
   <div id="shelterMap"></div>
 </div>
+
+{% if resident_notices %}
+<div class="weather-card" style="margin-bottom: 20px;">
+  <div class="weather-header">
+    <div class="weather-title">
+      <span>📢</span>
+      <span>住民向け情報</span>
+    </div>
+  </div>
+  <div class="weather-body">
+    {% for notice in resident_notices %}
+      {% set notice_type = notice.notice_type or notice.type or '避難指示' %}
+      {% set emergency = notice.emergency_level or '中' %}
+      {% set red = '#d62828' if emergency == '高' else '#d79d00' if emergency == '中' else '#1d9d58' %}
+      <div class="weather-status">
+        <span class="status-dot" style="background: {{ red }}; box-shadow: 0 0 0 3px rgba(0,0,0,0.08);"></span>
+        <span>
+          <strong>{{ notice.destination_message or (notice.region ~ 'は' ~ notice.shelter ~ 'へ避難してください。' if notice.shelter and notice_type == '避難指示' else notice.region ~ 'の' ~ notice.shelter ~ 'を開設しました。' if notice.shelter and notice_type == '避難所開設' else notice_type) }}</strong>
+          {% if notice.destination_message and notice.content %}<br>補足: {{ notice.content }}{% elif not notice.destination_message and not notice.shelter %}：{{ notice.content }}{% endif %}
+        </span>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
 
 <div class="weather-card">
   <div class="weather-header">
@@ -32,6 +62,78 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  const easyJapaneseToggle = document.getElementById('easyJapaneseToggle');
+  const largeTextToggle = document.getElementById('largeTextToggle');
+  const easyText = [
+    ['避難所マップ', '逃げる場所の地図'],
+    ['住民向け情報', 'みなさんへのお知らせ'],
+    ['青森市 気象警報・注意報', '青森市の天気のお知らせ'],
+    ['10分おき自動更新', '10分ごとに新しくなります'],
+    ['現在、警報・注意報は発表されていません', 'いま、危険な天気のお知らせはありません'],
+    ['気象情報の取得に失敗しました', '天気のお知らせを見られません。あとで確認してください'],
+    ['読み込み中...', '読み込んでいます...'],
+    ['データ取得時刻:', '情報を見た時刻:'],
+    ['気象庁最終発表:', '気象庁が発表した時刻:'],
+    ['避難所開設', '逃げる場所が使えます'],
+    ['避難指示', '逃げてください'],
+    ['避難先:', '逃げる場所:'],
+    ['避難してください', '逃げてください'],
+    ['開設しました', '使えます'],
+    ['警報', '危険なお知らせ'],
+    ['注意報', '気をつけてのお知らせ'],
+    ['危険', 'あぶない'],
+  ];
+  const originalTextNodes = new WeakMap();
+
+  function setEasyText(node, easyJapanese) {
+    if (!originalTextNodes.has(node)) originalTextNodes.set(node, node.nodeValue);
+    const original = originalTextNodes.get(node);
+    node.nodeValue = easyJapanese
+      ? easyText.reduce((text, pair) => text.split(pair[0]).join(pair[1]), original)
+      : original;
+  }
+
+  function updateTextModes() {
+    const easyJapanese = localStorage.getItem('homeEasyJapanese') === 'true';
+    const largeText = localStorage.getItem('homeLargeText') === 'true';
+    document.body.classList.toggle('easy-japanese', easyJapanese);
+    document.body.classList.toggle('large-home-text', largeText);
+    easyJapaneseToggle.setAttribute('aria-pressed', String(easyJapanese));
+    largeTextToggle.setAttribute('aria-pressed', String(largeText));
+    easyJapaneseToggle.textContent = easyJapanese ? 'ふつうの日本語に戻す' : 'やさしい日本語にする';
+    largeTextToggle.textContent = largeText ? '文字を元の大きさにする' : '文字を大きくする';
+
+    const textWalker = document.createTreeWalker(document.querySelector('main'), NodeFilter.SHOW_TEXT);
+    while (textWalker.nextNode()) setEasyText(textWalker.currentNode, easyJapanese);
+  }
+
+  easyJapaneseToggle.addEventListener('click', function() {
+    localStorage.setItem('homeEasyJapanese', String(localStorage.getItem('homeEasyJapanese') !== 'true'));
+    updateTextModes();
+  });
+  largeTextToggle.addEventListener('click', function() {
+    localStorage.setItem('homeLargeText', String(localStorage.getItem('homeLargeText') !== 'true'));
+    updateTextModes();
+  });
+  updateTextModes();
+
+  const textObserver = new MutationObserver(function(mutations) {
+    if (localStorage.getItem('homeEasyJapanese') !== 'true') return;
+    mutations.forEach(function(mutation) {
+      mutation.addedNodes.forEach(function(node) {
+          if (node.nodeType === Node.TEXT_NODE) {
+            if (node.nodeValue.trim()) setEasyText(node, true);
+            return;
+          }
+          const addedTextWalker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+          while (addedTextWalker.nextNode()) {
+            if (addedTextWalker.currentNode.nodeValue.trim()) setEasyText(addedTextWalker.currentNode, true);
+          }
+      });
+    });
+  });
+  textObserver.observe(document.getElementById('weatherContent'), { childList: true, subtree: true });
+
     const map = L.map('shelterMap', { zoomControl: true, scrollWheelZoom: false }).setView([40.8244, 140.7400], 11);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -100,4 +202,57 @@ document.addEventListener('DOMContentLoaded', function() {
     setInterval(updateWeatherWarnings, 600000);
 });
 </script>
+
+<style>
+  .accessibility-tools {
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 18px;
+  }
+
+  .accessibility-tools button {
+    min-height: 48px;
+    padding: 10px 16px;
+    border: 2px solid #0e5c8d;
+    border-radius: 6px;
+    background: #fff;
+    color: #094b77;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .accessibility-tools button[aria-pressed="true"] {
+    background: #0e5c8d;
+    color: #fff;
+  }
+
+  body.large-home-text main {
+    font-size: 1.3rem;
+  }
+
+  body.large-home-text .section-title,
+  body.large-home-text .weather-title,
+  body.large-home-text .weather-status,
+  body.large-home-text .weather-body {
+    font-size: 1.3em;
+  }
+
+  body.large-home-text .weather-badge,
+  body.large-home-text .weather-body .small {
+    font-size: 1.05rem;
+  }
+
+  @media (max-width: 640px) {
+    .accessibility-tools {
+      justify-content: stretch;
+    }
+
+    .accessibility-tools button {
+      flex: 1 1 100%;
+    }
+  }
+</style>
 {% endblock %}

@@ -34,6 +34,7 @@
       justify-content: space-between;
       padding: 0 24px 0 28px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      gap: 16px;
     }
 
     .app-brand {
@@ -43,33 +44,38 @@
       line-height: 1;
       color: #fff;
       text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .header-nav {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .header-tab {
+      display: inline-block;
+      padding: 8px 12px;
+      border-radius: 999px;
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+
+    .header-tab:hover {
+      background: rgba(255, 255, 255, 0.18);
+      transform: translateY(-1px);
     }
 
     .app-menu {
-      width: 38px;
-      height: 38px;
-      border: 0;
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.06);
-      position: relative;
-      cursor: pointer;
+      display: none;
     }
-
-    .app-menu::before,
-    .app-menu::after,
-    .app-menu span {
-      content: "";
-      position: absolute;
-      left: 10px;
-      width: 18px;
-      height: 2px;
-      background: #fff;
-      border-radius: 2px;
-    }
-
-    .app-menu::before { top: 12px; }
-    .app-menu span { top: 18px; }
-    .app-menu::after { top: 24px; }
 
     .top-nav {
       display: none;
@@ -244,20 +250,19 @@
 <body>
   <header class="app-header">
     <a href="/" class="app-brand">防災アプリ</a>
-    <button class="app-menu" aria-label="メニュー"><span></span></button>
-  </header>
 
-  <nav class="top-nav">
-    <a href="/">ホーム</a>
-    <a href="/shelter_search">避難所検索</a>
-    <a href="/shelter_register">避難所登録</a>
-    <a href="/board">指示・発信ボード</a>
-    {% if session.logged_in %}
-      <a href="/logout">ログアウト</a>
-    {% else %}
-      <a href="/login">ログイン</a>
-    {% endif %}
-  </nav>
+    <nav class="header-nav" aria-label="メインナビゲーション">
+      <a href="/" class="header-tab">ホーム</a>
+      <a href="/shelter_register" class="header-tab">避難所登録</a>
+      <a href="/shelter_search" class="header-tab">避難所検索</a>
+      <a href="/board" class="header-tab">指示ボード</a>
+      {% if session.logged_in %}
+        <a href="/logout" class="header-tab">ログアウト</a>
+      {% else %}
+        <a href="/login" class="header-tab">ログイン</a>
+      {% endif %}
+    </nav>
+  </header>
 
   <main>
     {% block content %}{% endblock %}
