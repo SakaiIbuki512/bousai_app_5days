@@ -88,6 +88,7 @@
   <div class="field checkbox-field">
     <label for="publish_to_residents">住民へ発信する</label>
     <input type="checkbox" id="publish_to_residents" name="publish_to_residents" checked>
+    <span id="publicationHint" class="publication-hint" aria-live="polite"></span>
   </div>
 
   <button type="submit" class="submit-btn">発信する</button>
@@ -131,8 +132,20 @@
         {{ inst.emergency_level or '中' }}
       </span>
     </td>
-    <td>{{ inst.status or '未対応' }}</td>
-    <td>{{ 'はい' if inst.publish_to_residents else 'いいえ' }}</td>
+    <td>
+      {% set current_status = inst.status if inst.status in ('未対応', '対応中', '対応済み') else '対応済み' %}
+      <form method="POST" class="status-form">
+        <input type="hidden" name="update_status" value="on">
+        <input type="hidden" name="instruction_id" value="{{ inst.id }}">
+        <select name="response_status" aria-label="{{ inst.region or '全域' }}の対応状況">
+          <option value="未対応" {% if current_status == '未対応' %}selected{% endif %}>未対応</option>
+          <option value="対応中" {% if current_status == '対応中' %}selected{% endif %}>対応中</option>
+          <option value="対応済み" {% if current_status == '対応済み' %}selected{% endif %}>対応済み</option>
+        </select>
+        <button type="submit" class="status-save-btn">更新</button>
+      </form>
+    </td>
+    <td>{{ 'はい' if inst.publish_to_residents and inst.target in ('住民', '住民向け') else 'いいえ' }}</td>
   </tr>
   {% endfor %}
 </table>
@@ -205,6 +218,11 @@
     height: 18px;
   }
 
+  .publication-hint {
+    color: #526678;
+    font-size: 0.85rem;
+  }
+
   .submit-btn {
     background: #0e5c8d;
     color: white;
@@ -252,6 +270,32 @@
     vertical-align: top;
   }
 
+  .status-form {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-form select {
+    min-width: 100px;
+    padding: 7px;
+    border: 1px solid #cdd7df;
+    border-radius: 6px;
+    background: #fff;
+    font: inherit;
+  }
+
+  .status-save-btn {
+    padding: 7px 10px;
+    border: 0;
+    border-radius: 6px;
+    background: #0e5c8d;
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
   @media (max-width: 760px) {
     .board-table {
       display: block;
@@ -265,6 +309,18 @@
   const shelterField = document.getElementById('shelter');
   const noticeTypeField = document.getElementById('notice_type');
   const destinationPreview = document.getElementById('destinationPreview');
+  const targetField = document.getElementById('target');
+  const publishField = document.getElementById('publish_to_residents');
+  const publicationHint = document.getElementById('publicationHint');
+
+  function updatePublicationTarget() {
+    const internalTarget = targetField.value === '庁内向け';
+    if (internalTarget) publishField.checked = false;
+    publishField.disabled = internalTarget;
+    publicationHint.textContent = internalTarget
+      ? '庁内向けのため、住民には発信されません。'
+      : '住民向けの情報をホーム画面に表示します。';
+  }
 
   function updateDestinationPreview() {
     const region = regionField.value || '全域';
@@ -286,6 +342,8 @@
   regionField.addEventListener('change', updateDestinationPreview);
   shelterField.addEventListener('change', updateDestinationPreview);
   noticeTypeField.addEventListener('change', updateDestinationPreview);
+  targetField.addEventListener('change', updatePublicationTarget);
+  updatePublicationTarget();
   updateDestinationPreview();
 </script>
 {% endblock %}

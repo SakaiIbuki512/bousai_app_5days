@@ -1,26 +1,55 @@
 [
   {
+    "id": 4,
+    "target": "住民向け",
+    "content": "",
+    "destination_message": "A地区は鵠洋小学校へ避難してください。",
+    "shelter": "鵠洋小学校",
+    "region": "A地区",
+    "status": "対応済み",
+    "emergency_level": "中",
+    "publish_to_residents": true,
+    "notice_type": "避難指示",
+    "created_at": "2026年10月04日 13:21",
+    "updated_at": "2026年10月04日 13:48"
+  },
+  {
+    "id": 3,
+    "target": "庁内向け",
+    "content": "",
+    "destination_message": "B地区は御所見小学校へ避難してください。",
+    "shelter": "御所見小学校",
+    "region": "B地区",
+    "status": "対応済み",
+    "emergency_level": "低",
+    "publish_to_residents": true,
+    "notice_type": "避難指示",
+    "created_at": "2026年10月04日 13:21",
+    "updated_at": "2026年10月04日 13:48"
+  },
+  {
     "id": 2,
     "target": "住民向け",
     "content": "市立体育館を開設しました。",
     "shelter": "市立体育館",
     "region": "A地区",
-    "status": "対応中",
+    "status": "対応済み",
     "emergency_level": "高",
     "publish_to_residents": true,
     "notice_type": "避難所開設",
     "created_at": "2026年10月04日 12:38",
-    "updated_at": "2026年10月04日 12:38"
+    "updated_at": "2026年10月04日 13:48"
   },
   {
     "id": 1,
     "target": "住民",
     "content": "B避難所へ避難してください",
     "shelter": "片瀬小学校",
-    "status": "解除",
+    "status": "対応済み",
     "emergency_level": "高",
     "publish_to_residents": true,
     "notice_type": "避難指示",
-    "region": "B地区"
+    "region": "B地区",
+    "updated_at": "2026年10月04日 13:48"
   }
 ]

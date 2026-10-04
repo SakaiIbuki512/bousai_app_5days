@@ -249,8 +249,8 @@ def index():
     resident_notices = []
     for item in instructions:
         target = str(item.get('target', '')).strip()
-        publish = bool(item.get('publish_to_residents'))
-        if target in ('住民', '住民向け') or publish:
+        publish = bool(item.get('publish_to_residents', True))
+        if target in ('住民', '住民向け') and publish:
             resident_notices.append(item)
     return render_template('index.html', resident_notices=resident_notices)
 
@@ -347,6 +347,39 @@ EMERGENCY_ORDER = {
 @login_required
 def board():
     if request.method == 'POST':
+        if request.form.get('update_status') == 'on':
+            instruction_id = request.form.get('instruction_id', '')
+            response_status = request.form.get('response_status', '').strip()
+            allowed_statuses = ('未対応', '対応中', '対応済み')
+            instruction = next(
+                (item for item in instructions if str(item.get('id')) == instruction_id),
+                None
+            )
+
+            if instruction and response_status in allowed_statuses:
+                instruction['status'] = response_status
+                instruction['updated_at'] = get_japan_time()
+                save_instructions()
+                status_message = '対応状況を更新しました。'
+                status_error = False
+            else:
+                status_message = '対応状況を更新できませんでした。'
+                status_error = True
+
+            sorted_instructions = sorted(
+                instructions,
+                key=lambda item: EMERGENCY_ORDER.get(str(item.get('emergency_level', '中')), 0),
+                reverse=True
+            )
+            return render_template(
+                'board.html',
+                instructions=sorted_instructions,
+                shelters=shelters,
+                success=not status_error,
+                error=status_error,
+                message=status_message
+            )
+
         if request.form.get('sort_priority') == 'on':
             sorted_instructions = sorted(
                 instructions,
@@ -362,7 +395,10 @@ def board():
         region = request.form.get('region', '全域').strip() or '全域'
         emergency_level = request.form.get('emergency_level', '中').strip() or '中'
         response_status = request.form.get('response_status', '未対応').strip() or '未対応'
-        publish_to_residents = request.form.get('publish_to_residents') == 'on' or target in ('住民', '住民向け')
+        publish_to_residents = (
+            target in ('住民', '住民向け')
+            and request.form.get('publish_to_residents') == 'on'
+        )
 
         shelter_names = {str(item.get('name', '')).strip() for item in shelters}
         if notice_type not in ('避難指示', '避難所開設'):
